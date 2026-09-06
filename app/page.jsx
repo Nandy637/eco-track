@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 import DashboardView from '@/components/dashboard/DashboardView'
@@ -48,8 +48,44 @@ export default function Page() {
   const [activities, setActivities] = useState(initialActivity)
   const [sectorData, setSectorData] = useState(sectors)
 
-  const handleAddEmission = (newRecord) => {
-    setLedger((prev) => [newRecord, ...prev])
+  // Fetch persistent records from API on mount
+  useEffect(() => {
+    fetch('/api/emissions')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
+          setLedger(json.data)
+        }
+      })
+      .catch((err) => console.warn('Using cached emissions ledger', err))
+
+    fetch('/api/dashboard/stats')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success && json.data?.recentActivities?.length) {
+          setActivities(json.data.recentActivities)
+        }
+      })
+      .catch((err) => console.warn('Using cached activity feed', err))
+  }, [])
+
+  const handleAddEmission = async (newRecord) => {
+    try {
+      const res = await fetch('/api/emissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRecord),
+      })
+      const result = await res.json()
+      if (result.success && result.data) {
+        setLedger((prev) => [result.data, ...prev])
+      } else {
+        setLedger((prev) => [newRecord, ...prev])
+      }
+    } catch (err) {
+      console.warn('Emissions POST failed, saving locally', err)
+      setLedger((prev) => [newRecord, ...prev])
+    }
 
     // Automatically append to recent activity feed
     const activityItem = {

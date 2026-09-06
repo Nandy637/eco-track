@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   AreaChart,
   Area,
@@ -36,6 +36,18 @@ export default function WaterView() {
   const [facilities, setFacilities] = useState(facilityWaterData)
   const [modalOpen, setModalOpen] = useState(false)
 
+  // Fetch persistent records from API
+  useEffect(() => {
+    fetch('/api/water')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data) && json.data.length > 0) {
+          setLedger(json.data)
+        }
+      })
+      .catch((err) => console.warn('Using cached water readings', err))
+  }, [])
+
   // Form State
   const [selectedFacility, setSelectedFacility] = useState(facilities[0]?.name || '')
   const [readingType, setReadingType] = useState('Municipal Intake')
@@ -61,23 +73,48 @@ export default function WaterView() {
     exportToCsv('ecotrack-water-consumption-audit', data)
   }
 
-  const handleAddReading = (e) => {
+  const handleAddReading = async (e) => {
     e.preventDefault()
     const num = parseFloat(volume)
     if (isNaN(num) || num <= 0) return
 
-    const newReading = {
-      id: `WAT-${Date.now().toString().slice(-4)}`,
+    const payload = {
       date: readingDate,
       facility: selectedFacility,
       type: readingType,
       volume: num,
-      unit: 'm³',
-      cost: `$${Math.round(num * 2.5).toLocaleString()}`,
       qualityIndex,
     }
 
-    setLedger([newReading, ...ledger])
+    try {
+      const res = await fetch('/api/water', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const result = await res.json()
+      if (result.success && result.data) {
+        setLedger((prev) => [result.data, ...prev])
+      } else {
+        const fallback = {
+          id: `WAT-${Date.now().toString().slice(-4)}`,
+          ...payload,
+          unit: 'm³',
+          cost: `$${Math.round(num * 2.5).toLocaleString()}`,
+        }
+        setLedger((prev) => [fallback, ...prev])
+      }
+    } catch (err) {
+      console.warn('Water POST failed, saving locally', err)
+      const fallback = {
+        id: `WAT-${Date.now().toString().slice(-4)}`,
+        ...payload,
+        unit: 'm³',
+        cost: `$${Math.round(num * 2.5).toLocaleString()}`,
+      }
+      setLedger((prev) => [fallback, ...prev])
+    }
+
     setModalOpen(false)
     setVolume('')
   }
