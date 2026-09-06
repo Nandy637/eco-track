@@ -3,6 +3,7 @@ import {
   Activity,
   Download,
   Factory,
+  FileUp,
   Filter,
   Flame,
   Plus,
@@ -14,14 +15,17 @@ import Card from '@/components/ui-cards/Card'
 import SectionTitle from '@/components/ui-cards/SectionTitle'
 import StatusBadge from '@/components/ui-cards/StatusBadge'
 import EmissionForm from './EmissionForm'
+import BulkIngestModal from './BulkIngestModal'
 import { exportToCsv } from '@/lib/exportCsv'
 
 export default function EmissionsView({
   ledger = [],
   onAddRecord = () => {},
+  onBatchImport = () => {},
   sectors = [],
 }) {
   const [modalOpen, setModalOpen] = useState(false)
+  const [bulkModalOpen, setBulkModalOpen] = useState(false)
   const [scopeFilter, setScopeFilter] = useState('All')
   const [sectorFilter, setSectorFilter] = useState('All')
   const [search, setSearch] = useState('')
@@ -97,6 +101,14 @@ export default function EmissionsView({
           >
             <Download size={14} />
             Export Ledger
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulkModalOpen(true)}
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition"
+          >
+            <FileUp size={14} />
+            Bulk Import CSV
           </button>
           <button
             type="button"
@@ -299,6 +311,20 @@ export default function EmissionsView({
         onClose={() => setModalOpen(false)}
         sectors={sectors}
         onSubmit={onAddRecord}
+      />
+
+      {/* Bulk Ingest Modal */}
+      <BulkIngestModal
+        isOpen={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
+        sectors={sectors}
+        onBatchSuccess={(records) => {
+          if (onBatchImport) {
+            onBatchImport(records)
+          } else {
+            records.forEach(onAddRecord)
+          }
+        }}
       />
     </div>
   )

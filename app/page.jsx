@@ -97,6 +97,22 @@ export default function Page() {
     setActivities((prev) => [activityItem, ...prev])
   }
 
+  const handleBatchEmissions = (newRecords) => {
+    setLedger((prev) => [...newRecords, ...prev])
+
+    const totalEmissions = newRecords
+      .reduce((sum, r) => sum + (Number(r.emissions) || 0), 0)
+      .toFixed(2)
+
+    const activityItem = {
+      id: `act-${Date.now()}`,
+      text: `Batch ingested ${newRecords.length} utility records (+${totalEmissions} tCO₂e)`,
+      time: 'Just now',
+      type: 'good',
+    }
+    setActivities((prev) => [activityItem, ...prev])
+  }
+
   // Master report export
   const handleDownloadSummaryReport = () => {
     const summaryRows = sectorData.map((s) => ({
@@ -156,6 +172,7 @@ export default function Page() {
             <EmissionsView
               ledger={ledger}
               onAddRecord={handleAddEmission}
+              onBatchImport={handleBatchEmissions}
               sectors={sectorData}
             />
           )}
