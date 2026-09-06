@@ -9,6 +9,7 @@ import EnergyUsage from './EnergyUsage'
 import PerformanceCard from './PerformanceCard'
 import ActivityCard from './ActivityCard'
 import SectorTable from './SectorTable'
+import AnomalyAlertsBanner from '@/components/copilot/AnomalyAlertsBanner'
 
 export default function DashboardView({
   dateRange = 'This Year',
@@ -20,6 +21,8 @@ export default function DashboardView({
   goals = [],
   energySources = [],
   recentActivity = [],
+  anomalies = [],
+  onOpenCopilotWithQuery = () => {},
   onNavigateTab = () => {},
 }) {
   const sectorOptions = useMemo(
@@ -37,6 +40,14 @@ export default function DashboardView({
 
   return (
     <div className="space-y-6">
+      {/* AI Anomaly Alert Banner */}
+      {anomalies && anomalies.length > 0 && (
+        <AnomalyAlertsBanner
+          anomalies={anomalies}
+          onOpenCopilotWithQuery={onOpenCopilotWithQuery}
+        />
+      )}
+
       {/* Overview Top Bar */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>

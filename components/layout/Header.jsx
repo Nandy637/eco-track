@@ -7,6 +7,7 @@ import {
   Menu,
   Search,
   Settings,
+  Sparkles,
 } from 'lucide-react'
 
 export default function Header({
@@ -17,6 +18,7 @@ export default function Header({
   searchTerm = '',
   setSearchTerm = () => {},
   onDownloadReport,
+  onOpenCopilot,
 }) {
   const [noticeOpen, setNoticeOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -72,6 +74,16 @@ export default function Header({
           <option>Last Year</option>
           <option>This Quarter</option>
         </select>
+
+        {/* AI Copilot Trigger */}
+        <button
+          type="button"
+          onClick={onOpenCopilot}
+          className="flex items-center gap-1.5 h-9 rounded-lg border border-emerald-200 bg-emerald-50/70 px-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition shadow-xs"
+        >
+          <Sparkles size={14} className="text-emerald-600 animate-pulse" />
+          <span className="hidden sm:inline">AI Copilot</span>
+        </button>
 
         {/* Notifications */}
         <div className="relative">

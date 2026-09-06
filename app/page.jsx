@@ -15,6 +15,7 @@ import EnergyUsage from '@/components/dashboard/EnergyUsage'
 import EnergySources from '@/components/dashboard/EnergySources'
 import SectorTable from '@/components/dashboard/SectorTable'
 import SectorChart from '@/components/dashboard/SectorChart'
+import CopilotDrawer from '@/components/copilot/CopilotDrawer'
 import { exportToCsv } from '@/lib/exportCsv'
 import {
   carbonData,
@@ -48,6 +49,11 @@ export default function Page() {
   const [activities, setActivities] = useState(initialActivity)
   const [sectorData, setSectorData] = useState(sectors)
 
+  // AI Copilot & Anomaly state
+  const [copilotOpen, setCopilotOpen] = useState(false)
+  const [copilotQuery, setCopilotQuery] = useState('')
+  const [anomalies, setAnomalies] = useState([])
+
   // Fetch persistent records from API on mount
   useEffect(() => {
     fetch('/api/emissions')
@@ -67,7 +73,21 @@ export default function Page() {
         }
       })
       .catch((err) => console.warn('Using cached activity feed', err))
+
+    fetch('/api/copilot')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json.data?.anomalies)) {
+          setAnomalies(json.data.anomalies)
+        }
+      })
+      .catch((err) => console.warn('Using cached anomalies', err))
   }, [])
+
+  const handleOpenCopilotWithQuery = (query) => {
+    setCopilotQuery(query)
+    setCopilotOpen(true)
+  }
 
   const handleAddEmission = async (newRecord) => {
     try {
@@ -148,6 +168,10 @@ export default function Page() {
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           onDownloadReport={handleDownloadSummaryReport}
+          onOpenCopilot={() => {
+            setCopilotQuery('')
+            setCopilotOpen(true)
+          }}
         />
 
         <main className="mx-auto max-w-[1500px] px-5 py-6 lg:px-8 lg:py-8">
@@ -163,6 +187,8 @@ export default function Page() {
               goals={goals}
               energySources={energySources}
               recentActivity={activities}
+              anomalies={anomalies}
+              onOpenCopilotWithQuery={handleOpenCopilotWithQuery}
               onNavigateTab={setActiveTab}
             />
           )}
@@ -369,6 +395,14 @@ export default function Page() {
           )}
         </main>
       </div>
+
+      {/* AI Decarbonization Copilot Drawer */}
+      <CopilotDrawer
+        isOpen={copilotOpen}
+        setIsOpen={setCopilotOpen}
+        initialQuery={copilotQuery}
+        sectors={sectorData}
+      />
     </div>
   )
 }
