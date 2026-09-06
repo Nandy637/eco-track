@@ -15,6 +15,7 @@ import {
   Check,
   Download,
   Droplets,
+  Lock,
   Plus,
   Recycle,
   ShieldCheck,
@@ -25,6 +26,7 @@ import Card from '@/components/ui-cards/Card'
 import SectionTitle from '@/components/ui-cards/SectionTitle'
 import StatusBadge from '@/components/ui-cards/StatusBadge'
 import { exportToCsv } from '@/lib/exportCsv'
+import { useAuth } from '@/context/AuthContext'
 import {
   monthlyWaterData,
   facilityWaterData,
@@ -32,6 +34,7 @@ import {
 } from '@/data/mockData'
 
 export default function WaterView() {
+  const { isAuditor, user, setLoginModalOpen, authFetch } = useAuth()
   const [ledger, setLedger] = useState(initialWaterLedger)
   const [facilities, setFacilities] = useState(facilityWaterData)
   const [modalOpen, setModalOpen] = useState(false)
@@ -87,7 +90,7 @@ export default function WaterView() {
     }
 
     try {
-      const res = await fetch('/api/water', {
+      const res = await authFetch('/api/water', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -141,16 +144,55 @@ export default function WaterView() {
             <Download size={14} />
             Export Audit
           </button>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-cyan-600 px-3.5 text-xs font-semibold text-white shadow-sm hover:bg-cyan-700 transition"
-          >
-            <Plus size={15} />
-            Log Reading
-          </button>
+
+          {isAuditor ? (
+            <button
+              type="button"
+              onClick={() => setLoginModalOpen(true)}
+              title="Click to switch role to Facility Operator or Corporate Admin to log water readings"
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 text-xs font-semibold text-amber-800 shadow-xs hover:bg-amber-100 transition"
+            >
+              <Lock size={13} className="text-amber-600" />
+              Locked (Auditor)
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="flex h-9 items-center gap-1.5 rounded-lg bg-cyan-600 px-3.5 text-xs font-semibold text-white shadow-sm hover:bg-cyan-700 transition"
+            >
+              <Plus size={15} />
+              Log Reading
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Auditor Notice Banner */}
+      {isAuditor && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-xs text-amber-900 shadow-xs animate-in fade-in duration-150">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-amber-200/70 text-amber-800">
+              <ShieldCheck size={16} />
+            </div>
+            <div>
+              <p className="font-bold text-amber-950">
+                Auditor Stewardship Assurance · Read-Only Access
+              </p>
+              <p className="text-[11px] text-amber-800">
+                Logged in as <strong>{user?.name}</strong>. Municipal water withdrawal and recycling circularity rates are auditable. Manual meter logging is restricted.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLoginModalOpen(true)}
+            className="shrink-0 rounded-lg bg-white px-3 py-1 text-xs font-bold text-amber-900 border border-amber-300 hover:bg-amber-100 transition"
+          >
+            Switch Persona
+          </button>
+        </div>
+      )}
 
       {/* Summary KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -17,8 +17,10 @@ import {
   validateAndMapRows,
   downloadSampleCsvTemplate,
 } from '@/lib/csvParser'
+import { useAuth } from '@/context/AuthContext'
 
 export default function BulkIngestModal({ isOpen, onClose, sectors = [], onBatchSuccess }) {
+  const { authFetch } = useAuth()
   const [dragActive, setDragActive] = useState(false)
   const [fileName, setFileName] = useState('')
   const [parsedRows, setParsedRows] = useState([])
@@ -112,7 +114,7 @@ export default function BulkIngestModal({ isOpen, onClose, sectors = [], onBatch
         })),
       }
 
-      const res = await fetch('/api/emissions/batch', {
+      const res = await authFetch('/api/emissions/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

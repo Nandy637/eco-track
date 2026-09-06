@@ -1,0 +1,11 @@
+Date,Sector,ActivityType,Quantity,Notes
+2026-07-05,Manufacturing,Grid Electricity,145000,Q3 Manufacturing Substation 1 Main Infeed
+2026-07-12,Energy & Utilities,Natural Gas,38000,Combined heat & power boiler run
+2026-07-19,Corporate,Grid Electricity,28400,HQ Central HVAC and data server room
+2026-07-26,Transportation,Fleet Diesel,12500,Regional delivery logistics batch 1
+2026-08-02,Manufacturing,Purchased Steam,42000,Process heating for cleanroom fab
+2026-08-09,Waste Management,Landfill Waste,18,Non-recyclable operational solid waste
+2026-08-16,Corporate,Business Travel Flights,64000,Global ESG steering committee travel
+2026-08-23,Transportation,Fleet Diesel,11800,Interstate haulage fleet cycle 2
+2026-08-30,Manufacturing,Grid Electricity,152000,Peak summer manufacturing output
+2026-09-02,Energy & Utilities,Natural Gas,41000,Quarter-end peaking turbine test

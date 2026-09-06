@@ -3,9 +3,24 @@ import { connectToDatabase } from '@/lib/mongodb'
 import Emission from '@/models/Emission'
 import Activity from '@/models/Activity'
 import { calculateEmissions, EMISSION_ACTIVITIES } from '@/lib/emissions'
+import { verifyAuth, hasPermission } from '@/lib/auth'
 
 export async function POST(request) {
   try {
+    // 1. Verify caller identity & role permissions
+    const auth = await verifyAuth(request)
+    if (!hasPermission(auth.role, 'batch_import')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Access Denied: ${auth.user?.roleTitle || 'Your role'} does not have permission to execute batch CSV imports.`,
+          requiredPermission: 'batch_import',
+          currentRole: auth.role,
+        },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { records } = body
 

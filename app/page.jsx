@@ -17,6 +17,7 @@ import SectorTable from '@/components/dashboard/SectorTable'
 import SectorChart from '@/components/dashboard/SectorChart'
 import CopilotDrawer from '@/components/copilot/CopilotDrawer'
 import { exportToCsv } from '@/lib/exportCsv'
+import { useAuth } from '@/context/AuthContext'
 import {
   carbonData,
   energyData,
@@ -38,6 +39,7 @@ import {
 } from 'lucide-react'
 
 export default function Page() {
+  const { authFetch, isAuditor, role } = useAuth()
   const [activeTab, setActiveTab] = useState('Dashboard')
   const [mobileOpen, setMobileOpen] = useState(false)
   const [dateRange, setDateRange] = useState('This Year')
@@ -91,7 +93,7 @@ export default function Page() {
 
   const handleAddEmission = async (newRecord) => {
     try {
-      const res = await fetch('/api/emissions', {
+      const res = await authFetch('/api/emissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newRecord),
@@ -100,6 +102,9 @@ export default function Page() {
       if (result.success && result.data) {
         setLedger((prev) => [result.data, ...prev])
       } else {
+        if (result.error) {
+          console.warn('Emissions POST rejected by server:', result.error)
+        }
         setLedger((prev) => [newRecord, ...prev])
       }
     } catch (err) {

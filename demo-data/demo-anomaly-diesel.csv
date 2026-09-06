@@ -1,0 +1,5 @@
+Date,Sector,ActivityType,Quantity,Notes
+2026-09-01,Transportation,Fleet Diesel,48500,CRITICAL: Abnormal diesel consumption spike on Route 9 logistics corridor
+2026-09-02,Transportation,Fleet Diesel,52000,CRITICAL: Suspected heavy equipment idling & off-route detour
+2026-09-03,Transportation,Fleet Diesel,49200,CRITICAL: Fleet mechanical inspection required (high fuel burn)
+2026-09-04,Transportation,Fleet Diesel,35000,Logistics depot returning toward baseline

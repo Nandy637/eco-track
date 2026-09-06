@@ -4,6 +4,7 @@ import Emission from '@/models/Emission'
 import Activity from '@/models/Activity'
 import { calculateEmissions } from '@/lib/emissions'
 import { initialEmissionsLedger } from '@/data/mockData'
+import { verifyAuth, hasPermission } from '@/lib/auth'
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -48,6 +49,20 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    // 1. Verify caller identity & role permissions
+    const auth = await verifyAuth(request)
+    if (!hasPermission(auth.role, 'log_emissions')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Access Denied: ${auth.user?.roleTitle || 'Your role'} has read-only access and cannot log new emission entries.`,
+          requiredPermission: 'log_emissions',
+          currentRole: auth.role,
+        },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { date, sector, activityType, quantity, notes = '' } = body
 

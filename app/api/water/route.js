@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
 import WaterReading from '@/models/WaterReading'
 import { initialWaterLedger } from '@/data/mockData'
+import { verifyAuth, hasPermission } from '@/lib/auth'
 
 export async function GET() {
   try {
@@ -31,6 +32,20 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    // 1. Verify caller identity & role permissions
+    const auth = await verifyAuth(request)
+    if (!hasPermission(auth.role, 'log_water')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Access Denied: ${auth.user?.roleTitle || 'Your role'} has read-only access and cannot submit water meter readings.`,
+          requiredPermission: 'log_water',
+          currentRole: auth.role,
+        },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { date, facility, type, volume, qualityIndex = 'Standard' } = body
 

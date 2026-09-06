@@ -3,17 +3,21 @@
 import { useState } from 'react'
 import {
   Building2,
+  Check,
   CheckCircle2,
   Download,
   FileCheck,
   FileSpreadsheet,
   FileText,
+  Lock,
   Printer,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import Card from '@/components/ui-cards/Card'
 import SectionTitle from '@/components/ui-cards/SectionTitle'
 import { exportToCsv } from '@/lib/exportCsv'
+import { useAuth } from '@/context/AuthContext'
 import {
   complianceFrameworks,
   sectors,
@@ -23,7 +27,9 @@ import {
 } from '@/data/mockData'
 
 export default function ReportsView({ ledger = initialEmissionsLedger, dateRange = 'This Year' }) {
+  const { role, isAdmin, isAuditor, user, can } = useAuth()
   const [activeFramework, setActiveFramework] = useState('ghgProtocol')
+  const [isApproved, setIsApproved] = useState(true)
   const framework = complianceFrameworks[activeFramework] || complianceFrameworks.ghgProtocol
 
   const handlePrint = () => {
@@ -233,18 +239,51 @@ export default function ReportsView({ ledger = initialEmissionsLedger, dateRange
         </div>
 
         {/* Sign-Off Block */}
-        <div className="mt-10 border-t-2 border-slate-900 pt-6 grid grid-cols-2 gap-8 text-xs">
-          <div>
-            <p className="text-[10px] uppercase font-semibold text-slate-400">Prepared By</p>
-            <p className="font-bold text-slate-800 mt-1">Michael Thomas</p>
-            <p className="text-slate-500 text-[11px]">Head of ESG & Corporate Sustainability</p>
-            <p className="text-slate-400 text-[10px] mt-2">Sign-off Date: March 6, 2026</p>
+        <div className="mt-10 border-t-2 border-slate-900 pt-6 grid sm:grid-cols-2 gap-8 text-xs">
+          <div className="flex flex-col justify-between">
+            <div>
+              <p className="text-[10px] uppercase font-semibold text-slate-400">Prepared By (CSO / Corporate Admin)</p>
+              <p className="font-bold text-slate-800 mt-1">Michael Thomas</p>
+              <p className="text-slate-500 text-[11px]">Head of ESG & Corporate Sustainability</p>
+              <p className="text-slate-400 text-[10px] mt-1">Sign-off Date: March 6, 2026</p>
+            </div>
+            {isAdmin && (
+              <div className="mt-3 print:hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsApproved(!isApproved)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
+                    isApproved
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                      : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  {isApproved ? (
+                    <>
+                      <CheckCircle2 size={13} className="text-emerald-600" />
+                      Executive Disclosure Approved (CSO Sign-Off)
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={13} className="text-slate-500" />
+                      Click to Approve & Sign Disclosure
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
           <div>
-            <p className="text-[10px] uppercase font-semibold text-slate-400">Verified & Approved</p>
+            <p className="text-[10px] uppercase font-semibold text-slate-400">Verified & Approved (Third-Party)</p>
             <p className="font-bold text-slate-800 mt-1">Dr. Eleanor Vance</p>
-            <p className="text-slate-500 text-[11px]">Lead Environmental Auditor, Bureau Veritas</p>
-            <p className="text-slate-400 text-[10px] mt-2">Certificate ID: BV-GHG-2026-9041A</p>
+            <p className="text-slate-500 text-[11px]">Lead Environmental Auditor, Bureau Veritas Assurance</p>
+            <p className="text-slate-400 text-[10px] mt-1">Certificate ID: BV-GHG-2026-9041A</p>
+            <div className="mt-3">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-bold text-amber-800">
+                <ShieldCheck size={12} className="text-amber-600" />
+                Auditor Assurance Stamped
+              </span>
+            </div>
           </div>
         </div>
       </Card>

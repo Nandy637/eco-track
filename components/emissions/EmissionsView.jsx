@@ -1,13 +1,16 @@
 import { useState, useMemo } from 'react'
 import {
   Activity,
+  AlertCircle,
   Download,
   Factory,
   FileUp,
   Filter,
   Flame,
+  Lock,
   Plus,
   Search,
+  ShieldCheck,
   Truck,
   Zap,
 } from 'lucide-react'
@@ -17,6 +20,7 @@ import StatusBadge from '@/components/ui-cards/StatusBadge'
 import EmissionForm from './EmissionForm'
 import BulkIngestModal from './BulkIngestModal'
 import { exportToCsv } from '@/lib/exportCsv'
+import { useAuth } from '@/context/AuthContext'
 
 export default function EmissionsView({
   ledger = [],
@@ -24,6 +28,7 @@ export default function EmissionsView({
   onBatchImport = () => {},
   sectors = [],
 }) {
+  const { isAuditor, role, user, setLoginModalOpen } = useAuth()
   const [modalOpen, setModalOpen] = useState(false)
   const [bulkModalOpen, setBulkModalOpen] = useState(false)
   const [scopeFilter, setScopeFilter] = useState('All')
@@ -102,24 +107,76 @@ export default function EmissionsView({
             <Download size={14} />
             Export Ledger
           </button>
-          <button
-            type="button"
-            onClick={() => setBulkModalOpen(true)}
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition"
-          >
-            <FileUp size={14} />
-            Bulk Import CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 transition"
-          >
-            <Plus size={15} />
-            Log Activity
-          </button>
+
+          {isAuditor ? (
+            <button
+              type="button"
+              disabled
+              title="Bulk import disabled for Sustainability Auditor role"
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 text-xs font-semibold text-slate-400 cursor-not-allowed"
+            >
+              <Lock size={13} className="text-slate-400" />
+              Bulk Import CSV
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setBulkModalOpen(true)}
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition"
+            >
+              <FileUp size={14} />
+              Bulk Import CSV
+            </button>
+          )}
+
+          {isAuditor ? (
+            <button
+              type="button"
+              onClick={() => setLoginModalOpen(true)}
+              title="Click to switch role to Facility Operator or Corporate Admin to log activity"
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 text-xs font-semibold text-amber-800 shadow-xs hover:bg-amber-100 transition"
+            >
+              <Lock size={13} className="text-amber-600" />
+              Locked (Auditor)
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 transition"
+            >
+              <Plus size={15} />
+              Log Activity
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Auditor Notice Banner */}
+      {isAuditor && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-xs text-amber-900 shadow-xs animate-in fade-in duration-150">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-amber-200/70 text-amber-800">
+              <ShieldCheck size={16} />
+            </div>
+            <div>
+              <p className="font-bold text-amber-950">
+                Auditor Assurance Mode Active · Read-Only Access
+              </p>
+              <p className="text-[11px] text-amber-800">
+                You are reviewing data as <strong>{user?.name}</strong> ({user?.roleTitle}). Ledger formulas and IPCC conversion factors are verifiable. Mutation endpoints are locked.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLoginModalOpen(true)}
+            className="shrink-0 rounded-lg bg-white px-3 py-1 text-xs font-bold text-amber-900 border border-amber-300 hover:bg-amber-100 transition"
+          >
+            Switch Persona
+          </button>
+        </div>
+      )}
 
       {/* Scope Cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
