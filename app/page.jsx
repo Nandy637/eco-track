@@ -1,42 +1,289 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
-import { Activity, AlertTriangle, BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, CircleUserRound, Download, Droplets, Factory, FileText, Gauge, Goal, Leaf, LogOut, Menu, MoreHorizontal, Search, Settings, ShieldCheck, Target, TrendingDown, TrendingUp, Truck, UserRound, Waves, X, Zap } from 'lucide-react'
+import { useState } from 'react'
+import Sidebar from '@/components/layout/Sidebar'
+import Header from '@/components/layout/Header'
+import DashboardView from '@/components/dashboard/DashboardView'
+import EmissionsView from '@/components/emissions/EmissionsView'
+import Card from '@/components/ui-cards/Card'
+import SectionTitle from '@/components/ui-cards/SectionTitle'
+import GoalsCard from '@/components/dashboard/GoalsCard'
+import EnergyUsage from '@/components/dashboard/EnergyUsage'
+import EnergySources from '@/components/dashboard/EnergySources'
+import { exportToCsv } from '@/lib/exportCsv'
+import {
+  carbonData,
+  energyData,
+  sectors,
+  goals,
+  energySources,
+  recentActivity as initialActivity,
+  initialEmissionsLedger,
+} from '@/data/mockData'
+import { ArrowLeft, CheckCircle2, Download, FileSpreadsheet, ShieldAlert } from 'lucide-react'
 
-const carbonData = [
-  { month: 'Jan', current: 245, last: 270 }, { month: 'Feb', current: 238, last: 265 }, { month: 'Mar', current: 252, last: 272 }, { month: 'Apr', current: 241, last: 260 }, { month: 'May', current: 229, last: 255 }, { month: 'Jun', current: 218, last: 248 }, { month: 'Jul', current: 225, last: 250 }, { month: 'Aug', current: 211, last: 242 }, { month: 'Sep', current: 205, last: 238 }, { month: 'Oct', current: 198, last: 230 }, { month: 'Nov', current: 192, last: 225 }, { month: 'Dec', current: 184, last: 218 },
-]
-const energyData = carbonData.map((item, index) => ({ ...item, value: [4.8, 4.6, 4.9, 4.5, 4.3, 4.1, 4.4, 4, 3.9, 3.8, 3.7, 3.6][index] }))
-const sectors = [
-  { name: 'Manufacturing', emissions: '1,281 tCO₂e', energy: '24.5 GWh', percent: 45, change: '↓ 7.2%', progress: 72, status: 'On Track', color: '#047857' },
-  { name: 'Transportation', emissions: '712 tCO₂e', energy: '12.8 GWh', percent: 25, change: '↑ 3.4%', progress: 48, status: 'At Risk', color: '#10B981' },
-  { name: 'Energy & Utilities', emissions: '427 tCO₂e', energy: '7.4 GWh', percent: 15, change: '↓ 11.8%', progress: 81, status: 'On Track', color: '#34D399' },
-  { name: 'Office & Administration', emissions: '228 tCO₂e', energy: '3.2 GWh', percent: 8, change: '↓ 9.5%', progress: 86, status: 'On Track', color: '#6EE7B7' },
-  { name: 'Waste Management', emissions: '199 tCO₂e', energy: '2.1 GWh', percent: 7, change: '↓ 14.2%', progress: 67, status: 'In Progress', color: '#A7F3D0' },
-]
-const goals = [
-  { name: 'Reduce Carbon Emissions', target: '20% reduction by 2030', progress: 76, status: 'On Track', tone: 'green' },
-  { name: 'Renewable Energy Transition', target: '50% renewable energy', progress: 68, status: 'On Track', tone: 'green' },
-  { name: 'Water Consumption Reduction', target: '15% reduction', progress: 61, status: 'In Progress', tone: 'blue' },
-  { name: 'Zero Waste Initiative', target: '90% waste diversion', progress: 54, status: 'At Risk', tone: 'amber' },
-]
-const energySources = [{ name: 'Renewable', value: 35, color: '#047857' }, { name: 'Natural Gas', value: 25, color: '#10B981' }, { name: 'Grid Electricity', value: 20, color: '#5EEAD4' }, { name: 'Nuclear', value: 10, color: '#93C5FD' }, { name: 'Coal', value: 10, color: '#CBD5E1' }]
+export default function Page() {
+  const [activeTab, setActiveTab] = useState('Dashboard')
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [dateRange, setDateRange] = useState('This Year')
+  const [sectorFilter, setSectorFilter] = useState('All sectors')
+  const [searchTerm, setSearchTerm] = useState('')
 
-function Card({ children, className = '' }) { return <section className={`rounded-2xl border border-slate-200 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.035)] ${className}`}>{children}</section> }
-function SectionTitle({ title, subtitle, action }) { return <div className="flex items-start justify-between gap-4"><div><h2 className="text-[15px] font-semibold text-slate-800">{title}</h2>{subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}</div>{action}</div> }
-function StatusBadge({ status }) { const styles = { 'On Track': 'bg-emerald-50 text-emerald-700', 'At Risk': 'bg-amber-50 text-amber-700', 'In Progress': 'bg-slate-100 text-slate-600' }; return <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium ${styles[status]}`}>{status}</span> }
-function ProgressLine({ value, tone = 'green' }) { const colors = { green: 'bg-emerald-500', blue: 'bg-sky-400', amber: 'bg-amber-400' }; return <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${colors[tone]}`} style={{ width: `${value}%` }} /></div> }
-function KpiCard({ icon: Icon, iconClass, title, value, comparison, target, detail, progress }) { return <Card className="p-5"><div className="flex items-start justify-between"><div className={`flex size-10 items-center justify-center rounded-xl ${iconClass}`}><Icon size={19} /></div><MoreHorizontal size={18} className="text-slate-300" /></div><p className="mt-4 text-xs font-medium text-slate-500">{title}</p><p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{value}</p><div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-emerald-600"><TrendingDown size={14} />{comparison}</div>{progress !== undefined ? <><div className="mt-5 flex items-center justify-between text-[11px] text-slate-400"><span>Target {target}</span><span className="font-semibold text-slate-600">{progress}%</span></div><ProgressLine value={progress} /></> : <div className="mt-5 flex items-center justify-between gap-3 text-[11px]"><span className="text-slate-400">Target: {target}</span><span className={`font-semibold ${detail.includes('above') ? 'text-amber-600' : 'text-emerald-600'}`}>{detail}</span></div>}</Card> }
-function Sidebar({ active, setActive, open, setOpen }) { const groups = [{ label: 'MAIN', items: [['Dashboard', Gauge], ['Emissions', Activity], ['Energy', Zap], ['Water', Droplets], ['Goals', Target], ['Reports', FileText], ['Analytics', BarChart3]] }, { label: 'MANAGEMENT', items: [['Sectors', Factory], ['Team', UserRound]] }, { label: 'GENERAL', items: [['Settings', Settings], ['Help', CircleHelp], ['Logout', LogOut]] }]; return <><aside className={`fixed inset-y-0 left-0 z-30 flex w-[236px] flex-col border-r border-slate-200 bg-white px-4 py-5 transition-transform lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}><div className="flex items-center justify-between px-2"><div className="flex items-center gap-2.5"><div className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white"><Leaf size={18} fill="currentColor" /></div><span className="text-[17px] font-bold tracking-tight text-slate-800">Eco<span className="text-emerald-600">Track</span></span></div><button onClick={() => setOpen(false)} className="text-slate-400 lg:hidden"><X size={18} /></button></div><div className="mt-9 flex flex-1 flex-col gap-7">{groups.map(group => <div key={group.label}><p className="mb-2 px-3 text-[10px] font-semibold tracking-[0.16em] text-slate-400">{group.label}</p><div className="flex flex-col gap-1">{group.items.map(([label, Icon]) => <button key={label} onClick={() => { setActive(label); setOpen(false) }} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition ${active === label ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-emerald-50 hover:text-emerald-700'}`}><Icon size={17} strokeWidth={active === label ? 2.2 : 1.8} />{label}</button>)}</div></div>)}</div><div className="rounded-xl bg-emerald-50 p-3.5"><div className="flex items-center gap-2 text-emerald-700"><ShieldCheck size={17} /><span className="text-xs font-semibold">Plan: Enterprise</span></div><p className="mt-1 text-[11px] leading-relaxed text-emerald-700/70">Your sustainability program is active.</p></div></aside>{open && <button aria-label="Close navigation" onClick={() => setOpen(false)} className="fixed inset-0 z-20 bg-slate-900/20 lg:hidden" />}</> }
-function Header({ setOpen, date, setDate }) { const [noticeOpen, setNoticeOpen] = useState(false); const [profileOpen, setProfileOpen] = useState(false); return <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 lg:px-8"><div className="flex items-center gap-3"><button onClick={() => setOpen(true)} className="text-slate-500 lg:hidden"><Menu size={21} /></button><div><h1 className="text-lg font-semibold text-slate-900">Dashboard</h1><p className="mt-0.5 hidden text-xs text-slate-500 sm:block">Monitor your organization's environmental performance and sustainability progress.</p></div></div><div className="flex items-center gap-2"><div className="hidden items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 md:flex"><Search size={16} className="text-slate-400" /><input aria-label="Search dashboard" className="w-28 bg-transparent text-xs outline-none placeholder:text-slate-400" placeholder="Search" /></div><select value={date} onChange={e => setDate(e.target.value)} aria-label="Date range" className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 outline-none"><option>This Year</option><option>Last Year</option><option>This Quarter</option></select><div className="relative"><button aria-label="Notifications" onClick={() => setNoticeOpen(!noticeOpen)} className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"><Bell size={17} /><span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-emerald-500" /></button>{noticeOpen && <div className="absolute right-0 top-11 z-10 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"><p className="text-xs font-semibold text-slate-800">Notifications</p><p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs text-emerald-700">Water target exceeded yesterday.</p></div>}</div><div className="relative"><button onClick={() => setProfileOpen(!profileOpen)} className="flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-slate-50"><div className="flex size-8 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">MT</div><span className="hidden text-xs font-medium text-slate-700 sm:block">Michael Thomas</span><ChevronDown size={14} className="text-slate-400" /></button>{profileOpen && <div className="absolute right-0 top-11 z-10 w-44 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"><button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs text-slate-600 hover:bg-slate-50"><CircleUserRound size={15} />View profile</button><button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs text-slate-600 hover:bg-slate-50"><Settings size={15} />Account settings</button></div>}</div><button onClick={() => window.alert('Your EcoTrack report is being prepared.')} className="hidden h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 sm:flex"><Download size={15} />Download Report</button></div></header> }
-function CarbonChart() { return <Card className="p-5 lg:p-6"><SectionTitle title="Carbon Emissions Over Time" subtitle="Monthly emissions across all company sectors" action={<button className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50"><MoreHorizontal size={18} /></button>} /><div className="mt-5 h-[245px]"><ResponsiveContainer width="100%" height="100%"><AreaChart data={carbonData} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}><defs><linearGradient id="carbonFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10B981" stopOpacity={0.18} /><stop offset="100%" stopColor="#10B981" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#EEF2F1" /><XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94A3B8' }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94A3B8' }} tickFormatter={value => `${value}`} domain={[160, 290]} /><Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }} formatter={(value, name) => [`${value} tCO₂e`, name === 'current' ? 'This year' : 'Last year']} /><Area type="monotone" dataKey="last" stroke="#CBD5E1" strokeWidth={2} strokeDasharray="5 5" fill="none" /><Area type="monotone" dataKey="current" stroke="#10B981" strokeWidth={2.5} fill="url(#carbonFill)" /></AreaChart></ResponsiveContainer></div><div className="mt-2 flex items-center justify-center gap-5 text-[11px] text-slate-500"><span className="flex items-center gap-1.5"><i className="size-2 rounded-full bg-emerald-500" />This year</span><span className="flex items-center gap-1.5"><i className="size-2 rounded-full bg-slate-300" />Last year</span><span className="ml-auto hidden text-slate-400 sm:block">Unit: tCO₂e</span></div></Card> }
-function SectorChart({ filter }) { const visible = filter === 'All sectors' ? sectors : sectors.filter(s => s.name === filter); return <Card className="p-5 lg:p-6"><SectionTitle title="Emissions by Sector" subtitle="Where your footprint comes from" action={<button onClick={() => window.alert('Sector detail view coming soon.')} className="text-xs font-semibold text-emerald-600 hover:text-emerald-700">View Details</button>} /><div className="mt-6 flex flex-col gap-4">{visible.map(sector => <div key={sector.name}><div className="mb-1.5 flex items-center justify-between gap-3 text-xs"><span className="truncate font-medium text-slate-700">{sector.name}</span><span className="shrink-0 text-slate-500">{sector.percent}% · {sector.emissions}</span></div><div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${sector.percent * 2.22}%`, background: sector.color }} /></div></div>)}</div></Card> }
-function EnergySources() { return <Card className="p-5 lg:p-6"><SectionTitle title="Energy Sources" subtitle="Current energy mix" /><div className="mt-2 flex items-center gap-3"><div className="relative h-[170px] w-[170px] shrink-0"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={energySources} dataKey="value" nameKey="name" innerRadius={53} outerRadius={78} paddingAngle={2} strokeWidth={0}>{energySources.map(item => <Cell key={item.name} fill={item.color} />)}</Pie></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><span className="text-2xl font-bold text-slate-800">35%</span><span className="text-[10px] text-slate-500">Renewable</span></div></div><div className="flex flex-col gap-2 text-[11px] text-slate-600">{energySources.map(item => <div key={item.name} className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ backgroundColor: item.color }} />{item.name}<span className="ml-auto font-semibold text-slate-800">{item.value}%</span></div>)}</div></div></Card> }
-function GoalsCard() { return <Card className="p-5 lg:p-6"><SectionTitle title="Sustainability Goals" subtitle="Progress toward your 2030 targets" action={<button className="text-xs font-semibold text-emerald-600">View all</button>} /><div className="mt-5 flex flex-col gap-5">{goals.map(goal => <div key={goal.name}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-slate-700">{goal.name}</p><p className="mt-1 text-[11px] text-slate-400">Target: {goal.target}</p></div><div className="text-right"><span className="text-sm font-bold text-slate-700">{goal.progress}%</span><p className={`mt-1 text-[10px] ${goal.status === 'At Risk' ? 'text-amber-600' : goal.status === 'In Progress' ? 'text-sky-600' : 'text-emerald-600'}`}>{goal.status}</p></div></div><div className="mt-2"><ProgressLine value={goal.progress} tone={goal.tone} /></div></div>)}</div></Card> }
-function EnergyUsage() { return <Card className="p-5 lg:p-6"><div className="flex items-start justify-between"><SectionTitle title="Energy Usage by Month" subtitle="Consumption trend · GWh" /><span className="flex items-center gap-1 text-xs font-medium text-emerald-600"><TrendingDown size={14} />6.2%</span></div><div className="mt-5 h-[205px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={energyData} margin={{ top: 6, right: 0, left: -22, bottom: 0 }}><CartesianGrid vertical={false} stroke="#EEF2F1" /><XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94A3B8' }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94A3B8' }} domain={[0, 6]} /><Tooltip cursor={{ fill: '#F0FDF4' }} contentStyle={{ borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 12 }} formatter={value => [`${value} GWh`, 'Energy']} /><Bar dataKey="value" fill="#10B981" radius={[4, 4, 0, 0]} barSize={15} /></BarChart></ResponsiveContainer></div></Card> }
-function PerformanceCard() { const metrics = [['Carbon Reduction', '8.5%', 85, 'emerald'], ['Energy Efficiency', '92%', 92, 'emerald'], ['Water Efficiency', '78%', 78, 'sky'], ['Waste Diversion', '84%', 84, 'amber']]; return <Card className="p-5 lg:p-6"><SectionTitle title="Environmental Performance" subtitle="Key efficiency indicators" /><div className="mt-5 grid grid-cols-2 gap-5">{metrics.map(([name, value, percent, tone]) => <div key={name}><div className="flex items-center justify-between"><p className="text-[11px] text-slate-500">{name}</p><span className="text-sm font-bold text-slate-800">{value}</span></div><div className="mt-2 h-1.5 rounded-full bg-slate-100"><div className={`h-full rounded-full ${tone === 'sky' ? 'bg-sky-400' : tone === 'amber' ? 'bg-amber-400' : 'bg-emerald-500'}`} style={{ width: `${percent}%` }} /></div></div>)}</div></Card> }
-function ActivityCard() { const items = [['Solar panel installation completed', '2 hours ago', 'good'], ['Manufacturing emissions report submitted', '5 hours ago', 'good'], ['Water consumption exceeded monthly target', 'Yesterday', 'warn'], ['Renewable energy target updated', '2 days ago', 'good']]; return <Card className="p-5 lg:p-6"><SectionTitle title="Recent Activity" subtitle="Latest updates from your organization" /><div className="mt-4 flex flex-col">{items.map(([text, time, type]) => <div key={text} className="flex items-start gap-3 border-b border-slate-100 py-3 last:border-0"><div className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full ${type === 'warn' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>{type === 'warn' ? <AlertTriangle size={12} /> : <span className="text-xs">✓</span>}</div><div><p className="text-xs font-medium text-slate-700">{text}</p><p className="mt-1 text-[11px] text-slate-400">{time}</p></div></div>)}</div></Card> }
-function SectorTable({ filter }) { const visible = filter === 'All sectors' ? sectors : sectors.filter(s => s.name === filter); return <Card className="overflow-hidden"><div className="flex items-center justify-between p-5 lg:p-6"><SectionTitle title="Sector Performance" subtitle="Emission and goal progress by business area" /><button className="hidden items-center gap-1 text-xs font-semibold text-emerald-600 sm:flex">Export <Download size={13} /></button></div><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead className="border-y border-slate-100 bg-slate-50/70 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-6 py-3 font-semibold">Sector</th><th className="px-4 py-3 font-semibold">Emissions</th><th className="px-4 py-3 font-semibold">Energy</th><th className="px-4 py-3 font-semibold">Change</th><th className="px-4 py-3 font-semibold">Goal Progress</th><th className="px-4 py-3 font-semibold">Status</th></tr></thead><tbody>{visible.map(sector => <tr key={sector.name} className="border-b border-slate-100 last:border-0"><td className="px-6 py-4 font-semibold text-slate-700">{sector.name}</td><td className="px-4 py-4 text-slate-600">{sector.emissions}</td><td className="px-4 py-4 text-slate-600">{sector.energy}</td><td className={`px-4 py-4 font-medium ${sector.change.includes('↑') ? 'text-amber-600' : 'text-emerald-600'}`}>{sector.change}</td><td className="px-4 py-4"><div className="flex items-center gap-2"><div className="h-1.5 w-20 rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${sector.progress}%` }} /></div><span className="text-slate-600">{sector.progress}%</span></div></td><td className="px-4 py-4"><StatusBadge status={sector.status} /></td></tr>)}</tbody></table></div></Card> }
+  // Interactive state
+  const [ledger, setLedger] = useState(initialEmissionsLedger)
+  const [activities, setActivities] = useState(initialActivity)
+  const [sectorData, setSectorData] = useState(sectors)
 
-export default function Page() { const [active, setActive] = useState('Dashboard'); const [open, setOpen] = useState(false); const [date, setDate] = useState('This Year'); const [filter, setFilter] = useState('All sectors'); const sectorOptions = useMemo(() => ['All sectors', ...sectors.map(s => s.name)], []); return <div className="min-h-screen bg-[#F7F9F8] text-slate-900"><Sidebar active={active} setActive={setActive} open={open} setOpen={setOpen} /><div className="min-h-screen lg:pl-[236px]"><Header setOpen={setOpen} date={date} setDate={setDate} /><main className="mx-auto max-w-[1500px] px-5 py-6 lg:px-8 lg:py-8"><div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">{date} overview</p><h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">Environmental performance</h2></div><div className="flex items-center gap-2"><span className="text-xs text-slate-500">View by sector</span><select value={filter} onChange={e => setFilter(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 outline-none"><option value="All sectors">All sectors</option>{sectorOptions.slice(1).map(option => <option key={option}>{option}</option>)}</select></div></div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><KpiCard icon={Leaf} iconClass="bg-emerald-50 text-emerald-600" title="Total Carbon Emissions" value="2,847 tCO₂e" comparison="8.5% vs last year" target="≤ 2,800 tCO₂e" detail="47 tCO₂e above target" /><KpiCard icon={Zap} iconClass="bg-sky-50 text-sky-600" title="Energy Consumption" value="50.09 GWh" comparison="6.2% vs last year" target="≤ 52 GWh" detail="Within Target" /><KpiCard icon={Droplets} iconClass="bg-cyan-50 text-cyan-600" title="Water Consumption" value="12,450 m³" comparison="4.8% vs last year" target="≤ 14,000 m³" detail="Within Target" /><KpiCard icon={Target} iconClass="bg-amber-50 text-amber-600" title="Sustainability Goal Progress" value="76%" comparison="12% this quarter" target="18 of 24 on track" progress={76} /></div><div className="mt-4 grid gap-4 xl:grid-cols-[1.45fr_1fr]"><CarbonChart /><SectorChart filter={filter} /></div><div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1.35fr]"><EnergySources /><GoalsCard /></div><div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr]"><EnergyUsage /><PerformanceCard /><ActivityCard /></div><div className="mt-4"><SectorTable filter={filter} /></div></main></div></div> }
+  const handleAddEmission = (newRecord) => {
+    setLedger((prev) => [newRecord, ...prev])
+
+    // Automatically append to recent activity feed
+    const activityItem = {
+      id: `act-${Date.now()}`,
+      text: `Logged ${newRecord.emissions} tCO₂e (${newRecord.activityType}) for ${newRecord.sector}`,
+      time: 'Just now',
+      type: 'good',
+    }
+    setActivities((prev) => [activityItem, ...prev])
+  }
+
+  // Master report export
+  const handleDownloadSummaryReport = () => {
+    const summaryRows = sectorData.map((s) => ({
+      ReportPeriod: dateRange,
+      Sector: s.name,
+      Emissions: s.emissions,
+      EnergyConsumption: s.energy,
+      AnnualDelta: s.change,
+      TargetProgress: `${s.progress}%`,
+      AuditStatus: s.status,
+    }))
+    exportToCsv(`ecotrack-executive-report-${dateRange.toLowerCase().replace(/\s+/g, '-')}`, summaryRows)
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F7F9F8] text-slate-900">
+      <Sidebar
+        active={activeTab}
+        setActive={setActiveTab}
+        open={mobileOpen}
+        setOpen={setMobileOpen}
+      />
+
+      <div className="min-h-screen lg:pl-[236px]">
+        <Header
+          setOpen={setMobileOpen}
+          date={dateRange}
+          setDate={setDateRange}
+          activeTab={activeTab}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          onDownloadReport={handleDownloadSummaryReport}
+        />
+
+        <main className="mx-auto max-w-[1500px] px-5 py-6 lg:px-8 lg:py-8">
+          {activeTab === 'Dashboard' && (
+            <DashboardView
+              dateRange={dateRange}
+              filter={sectorFilter}
+              setFilter={setSectorFilter}
+              sectors={sectorData}
+              carbonData={carbonData}
+              energyData={energyData}
+              goals={goals}
+              energySources={energySources}
+              recentActivity={activities}
+              onNavigateTab={setActiveTab}
+            />
+          )}
+
+          {activeTab === 'Emissions' && (
+            <EmissionsView
+              ledger={ledger}
+              onAddRecord={handleAddEmission}
+              sectors={sectorData}
+            />
+          )}
+
+          {activeTab === 'Goals' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">
+                    2030 SUSTAINABILITY ROADMAP
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+                    Target Milestones & Decarbonization Plan
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('Dashboard')}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                >
+                  <ArrowLeft size={14} /> Back to Dashboard
+                </button>
+              </div>
+              <div className="grid gap-6 md:grid-cols-2">
+                <GoalsCard goals={goals} />
+                <Card className="p-6">
+                  <SectionTitle
+                    title="Target Commitment Summary"
+                    subtitle="UN Sustainable Development Goals (SDG) Alignment"
+                  />
+                  <div className="mt-5 space-y-3.5 text-xs text-slate-600">
+                    <div className="flex items-start gap-2.5">
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                      <p>
+                        <strong>Science Based Targets initiative (SBTi):</strong> Commited to 1.5°C near-term target reduction by 2030.
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                      <p>
+                        <strong>RE100 Commitment:</strong> Transitioning core manufacturing facilities to 100% contracted solar and wind PPAs.
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                      <p>
+                        <strong>CDP Disclosure:</strong> On track for A- score in 2026 climate change survey cycle.
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'Energy' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">
+                    GRID & RENEWABLES INTELLIGENCE
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+                    Energy Portfolio & Consumption Trends
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('Dashboard')}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                >
+                  <ArrowLeft size={14} /> Back to Dashboard
+                </button>
+              </div>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <EnergyUsage data={energyData} />
+                <EnergySources sources={energySources} />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'Reports' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">
+                    COMPLIANCE & DISCLOSURE
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+                    Download & Export Audit Reports
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('Dashboard')}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                >
+                  <ArrowLeft size={14} /> Back to Dashboard
+                </button>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Card className="p-5">
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 mb-4">
+                    <FileSpreadsheet size={20} />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-800">Executive Summary CSV</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Full sector breakdown, emissions, energy, and progress delta.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSummaryReport}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition"
+                  >
+                    <Download size={14} />
+                    Download CSV
+                  </button>
+                </Card>
+
+                <Card className="p-5">
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600 mb-4">
+                    <FileSpreadsheet size={20} />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-800">Emissions Ledger CSV</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Itemized Scope 1, 2, and 3 activity logs with GHG emission factors.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      exportToCsv('ecotrack-all-emissions-ledger', ledger)
+                    }}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700 transition"
+                  >
+                    <Download size={14} />
+                    Download Ledger
+                  </button>
+                </Card>
+
+                <Card className="p-5">
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-teal-50 text-teal-600 mb-4">
+                    <FileSpreadsheet size={20} />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-800">Monthly Energy Trend CSV</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Monthly GWh electrical and fuel consumption dataset.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      exportToCsv('ecotrack-monthly-energy-trends', energyData)
+                    }}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-700 transition"
+                  >
+                    <Download size={14} />
+                    Download Trends
+                  </button>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {!['Dashboard', 'Emissions', 'Goals', 'Energy', 'Reports'].includes(activeTab) && (
+            <Card className="p-12 text-center max-w-lg mx-auto mt-8">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 mb-4">
+                <ShieldAlert size={24} />
+              </div>
+              <h3 className="text-base font-semibold text-slate-800">{activeTab} Module</h3>
+              <p className="mt-1.5 text-xs text-slate-500">
+                The {activeTab} workspace is being configured for your enterprise subscription.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('Dashboard')}
+                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition"
+              >
+                <ArrowLeft size={14} />
+                Return to Dashboard
+              </button>
+            </Card>
+          )}
+        </main>
+      </div>
+    </div>
+  )
+}
