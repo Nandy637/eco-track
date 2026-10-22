@@ -1,46 +1,66 @@
 import { NextResponse } from 'next/server'
-import { USERS, createSessionToken } from '@/lib/auth'
+import { USERS, authenticateUser, findUserByEmail, createSessionToken, ROLE_PERMISSIONS } from '@/lib/auth'
 
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { role, email } = body
+    const { role, email, password } = body
 
-    // Match user by requested role key or email
-    let matchedUser = null
+    let targetUser = null
+
+    // 1. Direct role-based quick demo login
     if (role && USERS[role]) {
-      matchedUser = USERS[role]
-    } else if (email) {
-      matchedUser = Object.values(USERS).find((u) => u.email.toLowerCase() === email.toLowerCase())
+      targetUser = USERS[role]
     }
-
-    if (!matchedUser) {
+    // 2. Email + Password credential authentication
+    else if (email && password) {
+      targetUser = authenticateUser(email, password)
+      if (!targetUser) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid email or password. Use demo credentials or register a new account.',
+          },
+          { status: 401 }
+        )
+      }
+    }
+    // 3. Email only lookup (quick login for demo accounts)
+    else if (email) {
+      const found = findUserByEmail(email)
+      if (found) {
+        targetUser = found
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'No account found with this email.' },
+          { status: 404 }
+        )
+      }
+    } else {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid credentials. Choose from Admin, Operator, or Auditor.',
-        },
-        { status: 401 }
+        { success: false, error: 'Email and password, or stakeholder role required.' },
+        { status: 400 }
       )
     }
 
     // Generate signed JWT
-    const token = await createSessionToken(matchedUser)
+    const token = await createSessionToken(targetUser)
 
     const response = NextResponse.json({
       success: true,
-      user: matchedUser,
+      user: targetUser,
+      role: targetUser.role,
+      permissions: ROLE_PERMISSIONS[targetUser.role]?.can || {},
       token,
-      message: `Signed in as ${matchedUser.name} (${matchedUser.roleTitle})`,
+      message: `Signed in as ${targetUser.name} (${targetUser.roleTitle || targetUser.role})`,
     })
 
-    // Set HTTP session cookie for browser persistence
+    // Set session cookie
     response.cookies.set({
       name: 'ecotrack_session',
       value: token,
-      httpOnly: false, // accessible to client for offline demonstration state
+      httpOnly: false,
       path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
       sameSite: 'lax',
     })
 
@@ -48,7 +68,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Login error:', error)
     return NextResponse.json(
-      { success: false, error: 'Authentication failed' },
+      { success: false, error: 'Authentication failed: ' + error.message },
       { status: 500 }
     )
   }

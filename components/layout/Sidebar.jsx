@@ -1,11 +1,11 @@
 import {
   Activity,
   BarChart3,
-  CircleHelp,
   Droplets,
   Factory,
   FileText,
   Gauge,
+  KeyRound,
   Leaf,
   LogOut,
   Settings,
@@ -15,6 +15,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
 
 const groups = [
   {
@@ -40,13 +41,25 @@ const groups = [
     label: 'GENERAL',
     items: [
       ['Settings', Settings],
-      ['Help', CircleHelp],
       ['Logout', LogOut],
     ],
   },
 ]
 
 export default function Sidebar({ active, setActive, open, setOpen }) {
+  const { user, role, logout, isAuthenticated, openLoginModal } = useAuth()
+
+  const handleItemClick = (label) => {
+    if (label === 'Logout') {
+      logout()
+      openLoginModal('signin')
+      setOpen(false)
+      return
+    }
+    setActive(label)
+    setOpen(false)
+  }
+
   return (
     <>
       <aside
@@ -86,10 +99,7 @@ export default function Sidebar({ active, setActive, open, setOpen }) {
                     <button
                       key={label}
                       type="button"
-                      onClick={() => {
-                        setActive(label)
-                        setOpen(false)
-                      }}
+                      onClick={() => handleItemClick(label)}
                       className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition ${
                         isActive
                           ? 'bg-emerald-600 text-white shadow-sm'
@@ -106,15 +116,53 @@ export default function Sidebar({ active, setActive, open, setOpen }) {
           ))}
         </div>
 
-        <div className="mt-auto rounded-xl bg-emerald-50/80 p-3.5 border border-emerald-100/60">
-          <div className="flex items-center gap-2 text-emerald-700">
-            <ShieldCheck size={17} />
-            <span className="text-xs font-semibold">Plan: Enterprise</span>
+        {/* Stakeholder Identity Footer */}
+        {isAuthenticated && user ? (
+          <div className="mt-auto rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div
+                className="flex items-center gap-2.5 overflow-hidden cursor-pointer"
+                onClick={() => {
+                  setActive('Settings')
+                  setOpen(false)
+                }}
+                title="Go to Settings"
+              >
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-xs font-bold text-white shadow-xs">
+                  {user.avatar || 'MT'}
+                </div>
+                <div className="truncate">
+                  <p className="truncate text-xs font-bold text-slate-800">{user.name}</p>
+                  <p className="truncate text-[10px] text-slate-400 capitalize">
+                    {user.roleTitle || user.role}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                title="Sign Out"
+                onClick={() => {
+                  logout()
+                  openLoginModal('signin')
+                }}
+                className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
           </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-emerald-700/70">
-            GHG Scope 1-3 audit active.
-          </p>
-        </div>
+        ) : (
+          <div className="mt-auto">
+            <button
+              type="button"
+              onClick={() => openLoginModal('signin')}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition"
+            >
+              <KeyRound size={14} />
+              Sign In
+            </button>
+          </div>
+        )}
       </aside>
 
       {open && (

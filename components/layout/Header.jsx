@@ -6,12 +6,14 @@ import {
   Download,
   Eye,
   Factory,
+  KeyRound,
   LogOut,
   Menu,
   Search,
   Settings,
   ShieldCheck,
   Sparkles,
+  UserCheck,
   Users,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -26,11 +28,21 @@ export default function Header({
   setSearchTerm = () => {},
   onDownloadReport,
   onOpenCopilot,
+  onNavigateTab = () => {},
 }) {
   const [noticeOpen, setNoticeOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
 
-  const { user, role, switchRole, logout, loginModalOpen, setLoginModalOpen } = useAuth()
+  const {
+    user,
+    role,
+    switchRole,
+    logout,
+    loginModalOpen,
+    setLoginModalOpen,
+    openLoginModal,
+    isAuthenticated,
+  } = useAuth()
 
   const descriptions = {
     Dashboard: "Monitor your organization's environmental performance and sustainability progress.",
@@ -40,6 +52,9 @@ export default function Header({
     Goals: 'Track progress toward 2030 net-zero targets and ESG milestones.',
     Reports: 'Generate compliance-ready ESG disclosure reports and audit ledgers.',
     Analytics: 'Deep dive into historical emissions, predictive forecasts, and sector breakdowns.',
+    Settings: 'Manage stakeholder profile, multi-factor security, emissions factors, and API keys.',
+    Sectors: 'Corporate business sectors, facilities, and aggregated decarbonization targets.',
+    Team: 'Cross-functional sustainability governance and facility management teams.',
   }
 
   const roleConfigs = {
@@ -85,15 +100,21 @@ export default function Header({
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-semibold text-slate-900">{activeTab}</h1>
               {/* Role Indicator Pill */}
-              <button
-                type="button"
-                onClick={() => setLoginModalOpen(true)}
-                className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition hover:opacity-85 ${currentRoleCfg.badgeClass}`}
-                title="Click to switch active role"
-              >
-                <RoleIcon size={12} />
-                <span>{currentRoleCfg.label}</span>
-              </button>
+              {isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={() => openLoginModal('personas')}
+                  className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition hover:opacity-85 ${currentRoleCfg.badgeClass}`}
+                  title="Click to switch active role"
+                >
+                  <RoleIcon size={12} />
+                  <span>{currentRoleCfg.label}</span>
+                </button>
+              ) : (
+                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                  Guest Mode
+                </span>
+              )}
             </div>
             <p className="mt-0.5 hidden text-xs text-slate-500 sm:block">
               {descriptions[activeTab] || 'Environmental sustainability and carbon intelligence.'}
@@ -171,129 +192,152 @@ export default function Header({
             )}
           </div>
 
-          {/* User Profile & Interactive Role Switcher */}
-          <div className="relative">
+          {/* User Profile / Auth Button */}
+          {isAuthenticated && user ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileOpen(!profileOpen)
+                  setNoticeOpen(false)
+                }}
+                className="flex items-center gap-2 rounded-lg p-1 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition"
+              >
+                <div
+                  className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${currentRoleCfg.avatarBg}`}
+                >
+                  {user?.avatar || 'MT'}
+                </div>
+                <div className="hidden text-left sm:block">
+                  <p className="text-xs font-semibold text-slate-800 leading-tight">
+                    {user?.name || 'Michael Thomas'}
+                  </p>
+                  <p className="text-[10px] font-medium text-slate-400">
+                    {currentRoleCfg.shortLabel}
+                  </p>
+                </div>
+                <ChevronDown size={14} className="text-slate-400" />
+              </button>
+
+              {profileOpen && (
+                <div className="absolute right-0 top-11 z-20 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+                  {/* Active Profile Summary */}
+                  <div className="px-2.5 py-2 border-b border-slate-100">
+                    <p className="text-xs font-bold text-slate-900">{user?.name}</p>
+                    <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold border ${currentRoleCfg.badgeClass}`}
+                      >
+                        <RoleIcon size={11} /> {currentRoleCfg.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 1-Click Role Switcher */}
+                  <div className="px-2 pt-2.5 pb-1 border-b border-slate-100">
+                    <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">
+                      Switch Role (Demo)
+                    </p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          switchRole('admin')
+                          setProfileOpen(false)
+                        }}
+                        className={`rounded-lg py-1.5 text-[10px] font-bold transition flex flex-col items-center gap-0.5 border ${
+                          role === 'admin'
+                            ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        <ShieldCheck size={12} />
+                        Admin
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          switchRole('operator')
+                          setProfileOpen(false)
+                        }}
+                        className={`rounded-lg py-1.5 text-[10px] font-bold transition flex flex-col items-center gap-0.5 border ${
+                          role === 'operator'
+                            ? 'bg-sky-600 text-white border-sky-700 shadow-xs'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Factory size={12} />
+                        Operator
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          switchRole('auditor')
+                          setProfileOpen(false)
+                        }}
+                        className={`rounded-lg py-1.5 text-[10px] font-bold transition flex flex-col items-center gap-0.5 border ${
+                          role === 'auditor'
+                            ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Eye size={12} />
+                        Auditor
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Account Navigation Links */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNavigateTab('Settings')
+                        setProfileOpen(false)
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      <Settings size={14} className="text-slate-400" />
+                      Settings & Preferences
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openLoginModal('signin')
+                        setProfileOpen(false)
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      <Users size={14} className="text-slate-400" />
+                      Switch Account / Matrix
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        logout()
+                        setProfileOpen(false)
+                        openLoginModal('signin')
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 transition"
+                    >
+                      <LogOut size={14} className="text-rose-500" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
             <button
               type="button"
-              onClick={() => {
-                setProfileOpen(!profileOpen)
-                setNoticeOpen(false)
-              }}
-              className="flex items-center gap-2 rounded-lg p-1 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition"
+              onClick={() => openLoginModal('signin')}
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 transition"
             >
-              <div
-                className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${currentRoleCfg.avatarBg}`}
-              >
-                {user?.avatar || 'MT'}
-              </div>
-              <div className="hidden text-left sm:block">
-                <p className="text-xs font-semibold text-slate-800 leading-tight">
-                  {user?.name || 'Michael Thomas'}
-                </p>
-                <p className="text-[10px] font-medium text-slate-400">
-                  {currentRoleCfg.shortLabel}
-                </p>
-              </div>
-              <ChevronDown size={14} className="text-slate-400" />
+              <KeyRound size={14} />
+              <span>Sign In</span>
             </button>
-
-            {profileOpen && (
-              <div className="absolute right-0 top-11 z-20 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-150">
-                {/* Active Profile Summary */}
-                <div className="px-2.5 py-2 border-b border-slate-100">
-                  <p className="text-xs font-bold text-slate-900">{user?.name}</p>
-                  <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <span
-                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold border ${currentRoleCfg.badgeClass}`}
-                    >
-                      <RoleIcon size={11} /> {currentRoleCfg.label}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 1-Click Role Switcher for Live Presentations */}
-                <div className="px-2 pt-2.5 pb-1 border-b border-slate-100">
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">
-                    Switch Stakeholder (Demo)
-                  </p>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        switchRole('admin')
-                        setProfileOpen(false)
-                      }}
-                      className={`rounded-lg py-1.5 text-[10px] font-bold transition flex flex-col items-center gap-0.5 border ${
-                        role === 'admin'
-                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <ShieldCheck size={12} />
-                      Admin
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        switchRole('operator')
-                        setProfileOpen(false)
-                      }}
-                      className={`rounded-lg py-1.5 text-[10px] font-bold transition flex flex-col items-center gap-0.5 border ${
-                        role === 'operator'
-                          ? 'bg-sky-600 text-white border-sky-700 shadow-xs'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Factory size={12} />
-                      Operator
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        switchRole('auditor')
-                        setProfileOpen(false)
-                      }}
-                      className={`rounded-lg py-1.5 text-[10px] font-bold transition flex flex-col items-center gap-0.5 border ${
-                        role === 'auditor'
-                          ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Eye size={12} />
-                      Auditor
-                    </button>
-                  </div>
-                </div>
-
-                {/* Account Navigation Links */}
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginModalOpen(true)
-                      setProfileOpen(false)
-                    }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition"
-                  >
-                    <Users size={14} className="text-slate-400" />
-                    Multi-Tenant Matrix
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      logout()
-                      setProfileOpen(false)
-                    }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 transition"
-                  >
-                    <LogOut size={14} className="text-rose-500" />
-                    Reset Session
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
 
           {onDownloadReport && (
             <button

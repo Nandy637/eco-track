@@ -6,54 +6,39 @@ import { USERS, ROLE_PERMISSIONS } from '@/lib/auth'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(USERS.admin)
-  const [role, setRole] = useState('admin')
+  const [currentUser, setCurrentUser] = useState(null)
+  const [role, setRole] = useState(null)
   const [token, setToken] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [loginModalOpen, setLoginModalOpen] = useState(false)
+  const [loginModalTab, setLoginModalTab] = useState('signin') // 'signin' | 'personas' | 'register'
 
-  // Initialize session on mount (from cookie / localStorage / API)
+  // Enforce mandatory authentication on every page reload and initial visit
   useEffect(() => {
-    try {
-      const savedRole = localStorage.getItem('ecotrack_active_role')
-      if (savedRole && USERS[savedRole]) {
-        setCurrentUser(USERS[savedRole])
-        setRole(savedRole)
-      }
-    } catch {
-      // Local storage unavailable, keep default
-    }
+    setIsAuthenticated(false)
+    setCurrentUser(null)
+    setRole(null)
+    setToken(null)
+    setIsLoading(false)
 
-    // Ping /api/auth/session to retrieve server-side verified token
-    fetch('/api/auth/session')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.user) {
-          // If we had a locally chosen role, ensure server aligns
-          const savedRole = localStorage.getItem('ecotrack_active_role')
-          if (!savedRole && data.user.role) {
-            setCurrentUser(data.user)
-            setRole(data.user.role)
-          }
-        }
-      })
-      .catch((err) => console.warn('Auth session check skipped:', err.message))
-      .finally(() => setIsLoading(false))
+    try {
+      localStorage.removeItem('ecotrack_logged_out')
+      localStorage.removeItem('ecotrack_active_role')
+      localStorage.removeItem('ecotrack_user_profile')
+      // Clear server-side session cookie so every reload requires a fresh login
+      fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+    } catch {}
   }, [])
 
-  // Fast Persona / Role Switcher for live presentations and stakeholder evaluation
+  // Fast Persona / Role Switcher
   const switchRole = useCallback(async (newRoleKey) => {
     if (!USERS[newRoleKey]) return
 
     const targetUser = USERS[newRoleKey]
     setCurrentUser(targetUser)
     setRole(newRoleKey)
-
-    try {
-      localStorage.setItem('ecotrack_active_role', newRoleKey)
-    } catch (e) {
-      console.warn('Storage sync skipped')
-    }
+    setIsAuthenticated(true)
 
     try {
       const res = await fetch('/api/auth/session', {
@@ -68,47 +53,132 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // Custom login function
-  const login = useCallback(async ({ role: selectedRole, email }) => {
+  // Login function supporting email & password or role
+  const login = useCallback(async ({ email, password, role: selectedRole }) => {
+    setIsLoading(true)
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: selectedRole, email }),
+        body: JSON.stringify({ email, password, role: selectedRole }),
       })
       const data = await res.json()
+
       if (data.success && data.user) {
         setCurrentUser(data.user)
         setRole(data.user.role)
+        setIsAuthenticated(true)
         if (data.token) setToken(data.token)
-        try {
-          localStorage.setItem('ecotrack_active_role', data.user.role)
-        } catch {}
+
         setLoginModalOpen(false)
-        return { success: true }
+        return { success: true, user: data.user }
       }
-      return { success: false, error: data.error }
+      return { success: false, error: data.error || 'Invalid credentials' }
     } catch (err) {
-      return { success: false, error: err.message }
+      return { success: false, error: err.message || 'Login failed' }
+    } finally {
+      setIsLoading(false)
     }
   }, [])
 
-  // Logout
+  // Register function
+  const register = useCallback(async ({ name, email, password, role: regRole, department, sector }) => {
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, role: regRole, department, sector }),
+      })
+      const data = await res.json()
+
+      if (data.success && data.user) {
+        setCurrentUser(data.user)
+        setRole(data.user.role)
+        setIsAuthenticated(true)
+        if (data.token) setToken(data.token)
+
+        setLoginModalOpen(false)
+        return { success: true, user: data.user }
+      }
+      return { success: false, error: data.error || 'Registration failed' }
+    } catch (err) {
+      return { success: false, error: err.message || 'Registration failed' }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Logout function
   const logout = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch {}
-    // Reset to auditor (or admin)
-    switchRole('auditor')
-  }, [switchRole])
+
+    setIsAuthenticated(false)
+    setCurrentUser(null)
+    setRole(null)
+    setToken(null)
+
+    try {
+      localStorage.removeItem('ecotrack_user_profile')
+      localStorage.removeItem('ecotrack_active_role')
+      localStorage.removeItem('ecotrack_logged_out')
+    } catch {}
+  }, [])
+
+  // Update Profile & Preferences
+  const updateProfile = useCallback(
+    async (updates) => {
+      const mergedUser = {
+        ...(currentUser || {}),
+        ...updates,
+        preferences: {
+          ...((currentUser && currentUser.preferences) || {}),
+          ...(updates.preferences || {}),
+        },
+      }
+      setCurrentUser(mergedUser)
+
+      try {
+        localStorage.setItem('ecotrack_user_profile', JSON.stringify(mergedUser))
+      } catch {}
+
+      try {
+        const res = await fetch('/api/auth/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-role': role,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(updates),
+        })
+        const data = await res.json()
+        if (data.success && data.user) {
+          setCurrentUser(data.user)
+        }
+      } catch (e) {
+        console.warn('Profile sync to server skipped:', e.message)
+      }
+    },
+    [currentUser, role, token]
+  )
+
+  // Open login modal to a specific tab
+  const openLoginModal = useCallback((tab = 'signin') => {
+    setLoginModalTab(tab)
+    setLoginModalOpen(true)
+  }, [])
 
   // Permission check helper
   const can = useCallback(
     (permissionKey) => {
+      if (!isAuthenticated || !role) return false
       const perms = ROLE_PERMISSIONS[role]?.can
       return Boolean(perms && perms[permissionKey])
     },
-    [role]
+    [role, isAuthenticated]
   )
 
   // Authenticated fetch wrapper injecting user role headers
@@ -116,7 +186,7 @@ export function AuthProvider({ children }) {
     (url, options = {}) => {
       const headers = {
         ...(options.headers || {}),
-        'x-user-role': role,
+        ...(role ? { 'x-user-role': role } : {}),
       }
       if (token) {
         headers['Authorization'] = `Bearer ${token}`
@@ -130,12 +200,18 @@ export function AuthProvider({ children }) {
     user: currentUser,
     role,
     token,
+    isAuthenticated,
     isLoading,
     loginModalOpen,
     setLoginModalOpen,
+    loginModalTab,
+    setLoginModalTab,
+    openLoginModal,
     switchRole,
     login,
+    register,
     logout,
+    updateProfile,
     can,
     authFetch,
     isAdmin: role === 'admin',

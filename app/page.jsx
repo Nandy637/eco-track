@@ -16,6 +16,8 @@ import EnergySources from '@/components/dashboard/EnergySources'
 import SectorTable from '@/components/dashboard/SectorTable'
 import SectorChart from '@/components/dashboard/SectorChart'
 import CopilotDrawer from '@/components/copilot/CopilotDrawer'
+import SettingsView from '@/components/settings/SettingsView'
+import AuthGate from '@/components/auth/AuthGate'
 import { exportToCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -29,17 +31,14 @@ import {
 } from '@/data/mockData'
 import {
   ArrowLeft,
-  BookOpen,
   CheckCircle2,
+  Leaf,
+  Loader2,
   Mail,
-  ShieldAlert,
-  ShieldCheck,
-  UserCheck,
-  Users,
 } from 'lucide-react'
 
 export default function Page() {
-  const { authFetch, isAuditor, role } = useAuth()
+  const { authFetch, isAuditor, role, isAuthenticated, isLoading } = useAuth()
   const [activeTab, setActiveTab] = useState('Dashboard')
   const [mobileOpen, setMobileOpen] = useState(false)
   const [dateRange, setDateRange] = useState('This Year')
@@ -56,8 +55,10 @@ export default function Page() {
   const [copilotQuery, setCopilotQuery] = useState('')
   const [anomalies, setAnomalies] = useState([])
 
-  // Fetch persistent records from API on mount
+  // Fetch persistent records from API once authenticated
   useEffect(() => {
+    if (!isAuthenticated) return
+
     fetch('/api/emissions')
       .then((res) => res.json())
       .then((json) => {
@@ -84,7 +85,7 @@ export default function Page() {
         }
       })
       .catch((err) => console.warn('Using cached anomalies', err))
-  }, [])
+  }, [isAuthenticated])
 
   const handleOpenCopilotWithQuery = (query) => {
     setCopilotQuery(query)
@@ -155,6 +156,32 @@ export default function Page() {
     )
   }
 
+  // 1. Loading state while verifying credentials/session
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 text-white px-4">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-white shadow-xl shadow-emerald-500/20 animate-pulse ring-1 ring-white/20">
+            <Leaf size={30} fill="currentColor" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-white">EcoTrack Carbon Intelligence</h1>
+            <p className="mt-1 text-xs text-slate-400">Verifying organizational access credentials & security session...</p>
+          </div>
+          <div className="mt-2 flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-300">
+            <Loader2 className="animate-spin text-emerald-400" size={14} />
+            <span>Establishing Secure Session</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 2. Mandatory Authentication Gate: Login page pops up first before any other pages can load
+  if (!isAuthenticated) {
+    return <AuthGate />
+  }
+
   return (
     <div className="min-h-screen bg-[#F7F9F8] text-slate-900">
       <Sidebar
@@ -177,6 +204,7 @@ export default function Page() {
             setCopilotQuery('')
             setCopilotOpen(true)
           }}
+          onNavigateTab={setActiveTab}
         />
 
         <main className="mx-auto max-w-[1500px] px-5 py-6 lg:px-8 lg:py-8">
@@ -378,26 +406,8 @@ export default function Page() {
             </div>
           )}
 
-          {/* 10. Settings & Help View Fallback */}
-          {['Settings', 'Help', 'Logout'].includes(activeTab) && (
-            <Card className="p-10 max-w-lg mx-auto mt-6 text-center">
-              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 mb-4">
-                <BookOpen size={22} />
-              </div>
-              <h3 className="text-base font-semibold text-slate-800">{activeTab} Workspace</h3>
-              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                Enterprise organization preferences, emission factor regional presets, and compliance audit trail settings.
-              </p>
-              <button
-                type="button"
-                onClick={() => setActiveTab('Dashboard')}
-                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition"
-              >
-                <ArrowLeft size={14} />
-                Return to Dashboard
-              </button>
-            </Card>
-          )}
+          {/* 10. Settings View */}
+          {activeTab === 'Settings' && <SettingsView />}
         </main>
       </div>
 

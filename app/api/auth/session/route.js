@@ -4,8 +4,18 @@ import { USERS, ROLE_PERMISSIONS, verifyAuth, createSessionToken } from '@/lib/a
 export async function GET(request) {
   try {
     const auth = await verifyAuth(request)
+    if (!auth.authenticated || !auth.user) {
+      return NextResponse.json({
+        success: false,
+        authenticated: false,
+        user: null,
+        role: null,
+        allRoles: USERS,
+      })
+    }
     return NextResponse.json({
       success: true,
+      authenticated: true,
       user: auth.user,
       role: auth.role,
       permissions: auth.permissions,
@@ -48,7 +58,6 @@ export async function POST(request) {
       value: token,
       httpOnly: false,
       path: '/',
-      maxAge: 60 * 60 * 24 * 7,
       sameSite: 'lax',
     })
 
